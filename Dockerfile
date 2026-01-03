@@ -16,14 +16,14 @@ RUN curl -LsSf https://astral.sh/uv/install. sh | sh
 WORKDIR /app
 
 # Copy package files first
-COPY package.json package-lock. json ./
+COPY package.json package-lock.json ./
 
 # Copy pyproject. toml
-COPY pyproject. toml ./
+COPY pyproject.toml ./
 
 # Add uv to PATH and install Python dependencies
 ENV PATH="/root/.cargo/bin:$PATH"
-RUN /root/.cargo/bin/uv pip sync
+RUN /root/.cargo/bin/uv sync
 
 # Install Node.js dependencies
 RUN npm ci
