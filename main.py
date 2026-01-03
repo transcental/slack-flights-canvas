@@ -61,7 +61,7 @@ def update_tracked_files():
                 if os.environ.get("DEBUG", "false").lower() == "true":
                     print_exc()
 
-        time.sleep(60 * 2)  # Update every two minutes
+        time.sleep(60 * 5)  # Update every five minutes
 
 
 def check_all_files():
