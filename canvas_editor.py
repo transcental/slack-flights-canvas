@@ -8,7 +8,7 @@ from requests import get
 from slack_bolt import App
 
 from find_json import find_json, find_json_url
-from flight_number_extraction import extract_flight_numbers
+from flight_number_extraction import extract_flight_numbers, extract_flight_specs
 from info_message_format import FLIGHT_INFO_FORMAT_VERSION, FLIGHT_INFO_TITLE, format_flight_info_message, \
     combine_flight_info_messages
 from parse_canvas import CanvasLine, parse_canvas
@@ -401,8 +401,8 @@ class CanvasEditor:
                 continue
             if FLIGHT_INFO_TITLE in line.text:
                 continue
-            flight_numbers = extract_flight_numbers(line.text)
-            if not flight_numbers:
+            flight_specs = extract_flight_specs(line.text)
+            if not flight_specs:
                 logging.info(f"No flight numbers found in line: {line.text}")
                 continue
             replace_existing = False
@@ -417,16 +417,16 @@ class CanvasEditor:
                         logging.info("Replacing existing flight info in the canvas")
                         replace_existing = True
             info_messages = {}  # Flight number: info message
-            for flight in flight_numbers:
-                flight_ident = get_flight_ident(flight)
-                flight_info = get_flight_data(flight_ident)
+            for flight_spec in flight_specs:
+                flight_ident = get_flight_ident(flight_spec.flight_number, flight_spec.date_time)
+                flight_info = get_flight_data(flight_ident, flight_spec.date_time)
                 if not flight_info:
                     logging.warning(
-                        f"Failed to scrape flight info for {flight}")  # Not an error because flight numbers may be inaccurate
+                        f"Failed to scrape flight info for {flight_spec}")  # Not an error because flight numbers may be inaccurate
                     continue
                 if self.map_enabled():
                     self.update_map_data(flight_info)
-                flight_number = flight_info.get('identifier', flight)
+                flight_number = flight_info.get('identifier', flight_spec.flight_number)
                 if flight_number in info_messages:
                     logging.info(f"Flight info for {flight_number} already exists, skipping")
                     continue

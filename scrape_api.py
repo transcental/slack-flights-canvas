@@ -5,12 +5,14 @@ from json import dumps
 from os import environ
 from queue import Queue
 from uuid import uuid4
+from datetime import datetime
 
 from cachetools import TTLCache, cached
 from dotenv import load_dotenv
 from flask import Flask, request, Response
 
 from scrape_flightaware import get_flight_ident, get_flight_data
+from flight_number_extraction import extract_flight_specs, FlightSpec
 
 load_dotenv()
 
@@ -60,10 +62,20 @@ def _background_refresh_flight_data(ident):
         print(f"Background refresh for ident {ident} failed: {e}")
 
 
-def get_full_flight_data(flight_number):
-    ident = cached_get_flight_ident(flight_number)
+def get_full_flight_data(flight_spec: FlightSpec):
+    """
+    Get flight data for a given flight specification (number + optional date/time).
+    
+    :param flight_spec: FlightSpec containing flight number and optional date/time.
+    :return: Flight data dictionary or None.
+    """
+    ident = cached_get_flight_ident(flight_spec.flight_number)
     if not ident:
         return None
+
+    # For date-specific requests, don't use cache
+    if flight_spec.date_time:
+        return get_flight_data(ident, flight_spec.date_time)
 
     with flight_data_cache_lock:
         cached_item = flight_data_cache.get(ident)
@@ -72,7 +84,7 @@ def get_full_flight_data(flight_number):
 
     # Data is older than 15 mins
     if not cached_item or (now - cached_item[1]) > STALE_DATA_TTL:
-        fresh_data = get_flight_data(ident)
+        fresh_data = get_flight_data(ident, flight_spec.date_time)
         if fresh_data:
             with flight_data_cache_lock:
                 flight_data_cache[ident] = (fresh_data, now)
@@ -96,26 +108,26 @@ def get_full_flight_data(flight_number):
 
 def worker():
     while True:
-        request_id, original_flight_number, normalized_number = task_queue.get()
+        request_id, original_flight_spec_str, flight_spec = task_queue.get()
         try:
-            result = get_full_flight_data(normalized_number)
+            result = get_full_flight_data(flight_spec)
             if not result:
                 result = {"error": "Flight data not found or could not be scraped."}
 
-            result['original_flight_number'] = original_flight_number
+            result['original_flight_number'] = original_flight_spec_str
             result['scraped_at'] = time.time()
 
             if request_id in results:
                 results[request_id].put(result)
         except Exception as e:
-            print(f"Worker error for flight {original_flight_number}: {e}")
+            print(f"Worker error for flight {original_flight_spec_str}: {e}")
             result_payload = {
                 "status": "error",
                 "result": {"error": f"An unexpected error occurred: {str(e)}"}
             }
             if request_id in results:
                 results[request_id].put({
-                    "original_flight_number": original_flight_number,
+                    "original_flight_number": original_flight_spec_str,
                     "scraped_at": time.time(),
                     **result_payload
                 })
@@ -141,14 +153,17 @@ def scrape(flight_numbers):
     flight_list = []
     for number in flight_numbers.split(","):
         original_number = number.strip()
-        normalized_number = original_number.replace(" ", "").replace("-", "").upper()
-        if original_number and 2 <= len(normalized_number) <= 10:
-            flight_list.append((original_number, normalized_number))
+        # Parse flight spec (flight number with optional date/time)
+        flight_specs = extract_flight_specs(original_number)
+        if flight_specs and len(flight_specs) > 0:
+            # Use the first flight spec found
+            flight_spec = flight_specs[0]
+            flight_list.append((original_number, flight_spec))
 
     results[request_id] = Queue()
 
-    for original, normalized in flight_list:
-        task_queue.put((request_id, original, normalized))
+    for original, spec in flight_list:
+        task_queue.put((request_id, original, spec))
 
     def stream():
         items_processed = 0
