@@ -1,32 +1,39 @@
-# Step 1: Build Stage
-FROM node:18-slim AS builder
+# Use Python 3.13 as base image
+FROM python:3.13-slim
 
+# Install Node.js 20
+RUN apt-get update && apt-get install -y \
+    curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
 WORKDIR /app
 
-COPY package*.json ./
+# Copy package files
+COPY package. json package-lock.json* ./
+COPY pyproject.toml ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir . 
+
+# Install Node.js dependencies
 RUN npm install
 
+# Copy application code
 COPY . .
 
-# Run the build script
+# Build frontend assets
 RUN npm run build
 
-# SAFETY CHECK: List files to verify if it's 'build' or 'dist'
-RUN ls -la
+# Expose port (default 5000, can be overridden with PORT env var)
+EXPOSE 5000
 
-# Step 2: Production Stage
-FROM node:18-slim
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
-
-# Only copy production dependencies
-COPY --from=builder /app/package*.json ./
-RUN npm install --omit=dev
-
-# Copy the compiled code from 'build' (the correct folder for this repo)
-COPY --from=builder /app/build ./build
-
-ENV NODE_ENV=production
-
-# Start the bot using the compiled code
-CMD ["node", "build/index.js"]
+# Run the application
+CMD ["python", "main.py"]
