@@ -1,13 +1,19 @@
 # Use Python 3.13 as base image
 FROM python:3.13-slim
 
-# Install Node.js 20
+# Install Node.js 20 and curl
 RUN apt-get update && apt-get install -y \
     curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add uv to PATH
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # Set working directory
 WORKDIR /app
@@ -18,10 +24,8 @@ COPY package.json package-lock.json ./
 # Copy pyproject.toml
 COPY pyproject.toml ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir . 
-
+# Install Python dependencies using uv
+RUN uv sync
 # Install Node.js dependencies
 RUN npm ci
 
@@ -38,4 +42,4 @@ EXPOSE 5000
 ENV PYTHONUNBUFFERED=1
 
 # Run the application
-CMD ["python", "main.py"]
+CMD ["uv", "run", "main.py"]
