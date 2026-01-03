@@ -53,6 +53,8 @@ def get_flight_data(ident, date_time: Optional[datetime] = None):
     if date_time:
         date_str = date_time.strftime("%Y%m%d")
         logging.info(f"Fetching flight data for {ident} (filtering for {date_str})")
+    else:
+        logging.info(f"Fetching current/latest flight data for {ident}")
     
     flight_page = get(url, headers=headers)
     if flight_page.status_code == 200:
@@ -72,7 +74,6 @@ def get_flight_data(ident, date_time: Optional[datetime] = None):
             return None
         
         # Get the first flight (or the one matching the time if specified)
-        flight_data = None
         if date_time and len(flights) > 1:
             # Try to find the flight that best matches the requested time
             target_timestamp = date_time.timestamp()
@@ -87,16 +88,9 @@ def get_flight_data(ident, date_time: Optional[datetime] = None):
                         min_diff = diff
                         best_match = fd
             
-            if best_match:
-                flight_data = best_match
-            else:
-                flight_data = list(flights.values())[0]
+            flight_data = best_match if best_match else list(flights.values())[0]
         else:
             flight_data = list(flights.values())[0]
-        
-        if not flight_data:
-            logging.info(f"No flight data found for {ident}")
-            return None
         
         return {
             "airline": (flight_data.get("airline", {}) or {}).get("shortName", "Unknown Airline"),
