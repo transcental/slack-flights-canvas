@@ -3,29 +3,30 @@ FROM node:18-slim AS builder
 
 WORKDIR /app
 
-# Copy package files first to leverage Docker cache
 COPY package*.json ./
 RUN npm install
 
-# Copy the rest of the source code
 COPY . .
 
-# Build the TypeScript code (converts /src to /dist or /build)
+# Run the build script
 RUN npm run build
+
+# SAFETY CHECK: List files to verify if it's 'build' or 'dist'
+RUN ls -la
 
 # Step 2: Production Stage
 FROM node:18-slim
 
 WORKDIR /app
 
-# Only copy the production dependencies and the compiled files
+# Only copy production dependencies
 COPY --from=builder /app/package*.json ./
 RUN npm install --omit=dev
 
-COPY --from=builder /app/dist ./dist
+# Copy the compiled code from 'build' (the correct folder for this repo)
+COPY --from=builder /app/build ./build
 
-# Set environment to production
 ENV NODE_ENV=production
 
-# The command to start the Slack bot
-CMD ["npm", "start"]
+# Start the bot using the compiled code
+CMD ["node", "build/index.js"]
