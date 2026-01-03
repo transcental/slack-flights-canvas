@@ -1,0 +1,14 @@
+[phases. setup]
+nixPkgs = ["python313", "nodejs_20"]
+
+[phases.install]
+cmds = [
+    "pip install .",
+    "npm install"
+]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "python main.py"
