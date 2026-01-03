@@ -12,8 +12,10 @@ RUN apt-get update && apt-get install -y \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package. json package-lock.json* ./
+# Copy package files first
+COPY package.json package-lock.json ./
+
+# Copy pyproject.toml
 COPY pyproject.toml ./
 
 # Install Python dependencies
@@ -21,10 +23,10 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir . 
 
 # Install Node.js dependencies
-RUN npm install
+RUN npm ci
 
 # Copy application code
-COPY . .
+COPY .  .
 
 # Build frontend assets
 RUN npm run build
