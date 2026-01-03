@@ -1,7 +1,7 @@
 # Use Python 3.13 as base image
 FROM python:3.13-slim
 
-# Install Node.js 20 and curl
+# Install Node. js 20 and curl
 RUN apt-get update && apt-get install -y \
     curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -10,22 +10,21 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install uv
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Add uv to PATH
-ENV PATH="/root/.cargo/bin:$PATH"
+RUN curl -LsSf https://astral.sh/uv/install. sh | sh
 
 # Set working directory
 WORKDIR /app
 
 # Copy package files first
-COPY package.json package-lock.json ./
+COPY package.json package-lock. json ./
 
-# Copy pyproject.toml
-COPY pyproject.toml ./
+# Copy pyproject. toml
+COPY pyproject. toml ./
 
-# Install Python dependencies using uv
-RUN uv sync
+# Add uv to PATH and install Python dependencies
+ENV PATH="/root/.cargo/bin:$PATH"
+RUN /root/.cargo/bin/uv pip sync
+
 # Install Node.js dependencies
 RUN npm ci
 
