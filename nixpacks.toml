@@ -1,13 +1,16 @@
-[phases. setup]
+[phases.setup]
 nixPkgs = ["python313", "nodejs_20"]
+nixLibs = ["gcc", "zlib"]
 
 [phases.install]
 cmds = [
-    "pip install .",
+    "curl -LsSf https://astral. sh/uv/install. sh | sh",
+    "export PATH=\"/root/.cargo/bin:$PATH\"",
+    "uv pip install --system .",
     "npm install"
 ]
 
-[phases.build]
+[phases. build]
 cmds = ["npm run build"]
 
 [start]
