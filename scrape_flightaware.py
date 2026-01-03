@@ -61,74 +61,74 @@ def get_flight_data(ident, date_time: Optional[datetime] = None):
         if not script:
             logging.info(f"No trackpollBootstrap script found for {ident} at {url}")
             return None
-        if script:
-            script_content = script.string.replace("var trackpollBootstrap = ", "", 1)
-            script_content = script_content[::-1].replace(";", "", 1).strip()[::-1]
-            flight_data_json = json_loads(script_content)
-            flights = flight_data_json.get("flights", {})
+        
+        script_content = script.string.replace("var trackpollBootstrap = ", "", 1)
+        script_content = script_content[::-1].replace(";", "", 1).strip()[::-1]
+        flight_data_json = json_loads(script_content)
+        flights = flight_data_json.get("flights", {})
+        
+        if not flights:
+            logging.info(f"No flight data found for {ident}")
+            return None
+        
+        # Get the first flight (or the one matching the time if specified)
+        flight_data = None
+        if date_time and len(flights) > 1:
+            # Try to find the flight that best matches the requested time
+            target_timestamp = date_time.timestamp()
+            best_match = None
+            min_diff = float('inf')
             
-            if not flights:
-                logging.info(f"No flight data found for {ident}")
-                return None
+            for fd in flights.values():
+                dep_time = fd.get("takeoffTimes", {}).get("scheduled")
+                if dep_time:
+                    diff = abs(dep_time - target_timestamp)
+                    if diff < min_diff:
+                        min_diff = diff
+                        best_match = fd
             
-            # Get the first flight (or the one matching the time if specified)
-            flight_data = None
-            if date_time and len(flights) > 1:
-                # Try to find the flight that best matches the requested time
-                target_timestamp = date_time.timestamp()
-                best_match = None
-                min_diff = float('inf')
-                
-                for fd in flights.values():
-                    dep_time = fd.get("takeoffTimes", {}).get("scheduled")
-                    if dep_time:
-                        diff = abs(dep_time - target_timestamp)
-                        if diff < min_diff:
-                            min_diff = diff
-                            best_match = fd
-                
-                if best_match:
-                    flight_data = best_match
-                else:
-                    flight_data = list(flights.values())[0]
+            if best_match:
+                flight_data = best_match
             else:
                 flight_data = list(flights.values())[0]
-            
-            if not flight_data:
-                logging.info(f"No flight data found for {ident}")
-                return None
-            
-            return {
-                "airline": (flight_data.get("airline", {}) or {}).get("shortName", "Unknown Airline"),
-                "identifier": flight_data.get("codeShare", {}).get("ident", ident),
-                "link": url,
-                "origin": {
-                    "airport": flight_data.get("origin", {}).get("friendlyName", "Unknown Origin"),
-                    "iata": flight_data.get("origin", {}).get("iata", "???"),
-                    "departure_time": flight_data.get("takeoffTimes", {}).get("scheduled"),
-                    "actual_departure_time": flight_data.get("takeoffTimes", {}).get("actual") or
-                                             flight_data.get("takeoffTimes", {}).get("estimated"),
-                    "coordinates": {
-                        "lat": (flight_data.get("origin", {}).get("coord") or [0, 0])[1],
-                        "lng": (flight_data.get("origin", {}).get("coord") or [0, 0])[0]
-                    }
-                },
-                "destination": {
-                    "airport": flight_data.get("destination", {}).get("friendlyName", "Unknown Destination"),
-                    "iata": flight_data.get("destination", {}).get("iata", "???"),
-                    "arrival_time": flight_data.get("landingTimes", {}).get("scheduled"),
-                    "actual_arrival_time": flight_data.get("landingTimes", {}).get("actual") or
-                                           flight_data.get("landingTimes", {}).get("estimated"),
-                    "coordinates": {
-                        "lat": (flight_data.get("destination", {}).get("coord") or [0, 0])[1],
-                        "lng": (flight_data.get("destination", {}).get("coord") or [0, 0])[0]
-                    }
-                },
-                "distance": {
-                    "elapsed": flight_data.get("distance", {}).get("elapsed", 0),
-                    "remaining": flight_data.get("distance", {}).get("remaining", 0)
-                },
-                "speed": flight_data.get("flightPlan", {}).get("speed", 0) if flight_data.get("flightPlan") else 0,
-            }
+        else:
+            flight_data = list(flights.values())[0]
+        
+        if not flight_data:
+            logging.info(f"No flight data found for {ident}")
+            return None
+        
+        return {
+            "airline": (flight_data.get("airline", {}) or {}).get("shortName", "Unknown Airline"),
+            "identifier": flight_data.get("codeShare", {}).get("ident", ident),
+            "link": url,
+            "origin": {
+                "airport": flight_data.get("origin", {}).get("friendlyName", "Unknown Origin"),
+                "iata": flight_data.get("origin", {}).get("iata", "???"),
+                "departure_time": flight_data.get("takeoffTimes", {}).get("scheduled"),
+                "actual_departure_time": flight_data.get("takeoffTimes", {}).get("actual") or
+                                         flight_data.get("takeoffTimes", {}).get("estimated"),
+                "coordinates": {
+                    "lat": (flight_data.get("origin", {}).get("coord") or [0, 0])[1],
+                    "lng": (flight_data.get("origin", {}).get("coord") or [0, 0])[0]
+                }
+            },
+            "destination": {
+                "airport": flight_data.get("destination", {}).get("friendlyName", "Unknown Destination"),
+                "iata": flight_data.get("destination", {}).get("iata", "???"),
+                "arrival_time": flight_data.get("landingTimes", {}).get("scheduled"),
+                "actual_arrival_time": flight_data.get("landingTimes", {}).get("actual") or
+                                       flight_data.get("landingTimes", {}).get("estimated"),
+                "coordinates": {
+                    "lat": (flight_data.get("destination", {}).get("coord") or [0, 0])[1],
+                    "lng": (flight_data.get("destination", {}).get("coord") or [0, 0])[0]
+                }
+            },
+            "distance": {
+                "elapsed": flight_data.get("distance", {}).get("elapsed", 0),
+                "remaining": flight_data.get("distance", {}).get("remaining", 0)
+            },
+            "speed": flight_data.get("flightPlan", {}).get("speed", 0) if flight_data.get("flightPlan") else 0,
+        }
     logging.error(f"Failed to fetch flight data from FlightAware: {flight_page.status_code}")
     return None
