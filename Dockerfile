@@ -1,7 +1,11 @@
 # Use Python 3.13 as base image
 FROM python:3.13-slim
 
-# Install Node. js 20 and curl
+# 1. Install uv (Best Practice: Copy from official image)
+# This places 'uv' directly in /bin, so it is automatically in the PATH.
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# 2. Install Node.js 20 and curl
 RUN apt-get update && apt-get install -y \
     curl \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
@@ -9,36 +13,37 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/install. sh | sh
-
 # Set working directory
 WORKDIR /app
 
-# Copy package files first
+# 3. Copy python dependency files
+# Note: It is highly recommended to include uv.lock if you have one
+COPY pyproject.toml uv.lock* ./
+
+# 4. Install Python dependencies
+# --frozen: fails if the lockfile is out of sync (good for CI/Deployment)
+# --no-dev: prevents installing testing/dev dependencies in production
+RUN uv sync --frozen --no-dev --no-cache
+
+# 5. Copy Node dependency files and install
 COPY package.json package-lock.json ./
-
-# Copy pyproject. toml
-COPY pyproject.toml ./
-
-# Add uv to PATH and install Python dependencies
-ENV PATH="/root/.cargo/bin:$PATH"
-RUN /root/.cargo/bin/uv sync
-
-# Install Node.js dependencies
 RUN npm ci
 
-# Copy application code
-COPY .  .
+# 6. Copy the rest of the application code
+COPY . .
 
-# Build frontend assets
+# 7. Build frontend assets
 RUN npm run build
 
-# Expose port (default 5000, can be overridden with PORT env var)
+# Expose port
 EXPOSE 5000
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+# Ensure the virtual environment created by uv is in the PATH
+ENV PATH="/app/.venv/bin:$PATH"
 
 # Run the application
+# Since we added .venv to PATH, we can run python directly, 
+# but 'uv run' is also fine.
 CMD ["uv", "run", "main.py"]
