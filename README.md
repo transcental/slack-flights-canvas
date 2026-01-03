@@ -35,16 +35,23 @@ uv run main.py
 
 ### Flight Number Formats
 
-The bot recognizes flight numbers in your canvas and can fetch information about them. You can specify flights in two ways:
+The bot recognizes flight numbers in your canvas and can fetch information about them. You can specify flights in several ways:
 
 1. **Basic flight number**: Simply mention the flight number (e.g., `AA123`, `BA456`, `UA789`)
-2. **Flight with specific date/time**: Add `@YYYY-MM-DD` or `@YYYY-MM-DDTHH:MM` after the flight number to get information about a specific flight instance
+2. **Flight with @ symbol and ISO date/time**: Add `@YYYY-MM-DD` or `@YYYY-MM-DDTHH:MM` after the flight number
+3. **Flight with natural date/time format**: Write the flight number followed by date and optional time (e.g., `BA698 03/01/26 14:50`)
+4. **Flight with time only**: Write the flight number followed by just the time (e.g., `BA698 14:50`) - uses today's date
 
 **Examples:**
 - `AA123` - Gets the current/most recent flight AA123
 - `AA123@2026-01-03` - Gets flight AA123 scheduled for January 3, 2026
 - `BA456@2026-01-04T14:30` - Gets flight BA456 scheduled for January 4, 2026 at 14:30
 - `UA789@2026-01-05T09:15:00` - Gets flight UA789 scheduled for January 5, 2026 at 09:15:00
+- `BA698 03/01/26 14:50` - Gets flight BA698 scheduled for March 1, 2026 at 14:50
+- `AA123 12/25/25` - Gets flight AA123 scheduled for December 25, 2025
+- `BA698 14:50` - Gets flight BA698 scheduled for today at 14:50
+
+**Date format for natural notation**: `MM/DD/YY` or `MM/DD/YYYY` followed by optional `HH:MM` time, or just `HH:MM` for time-only (uses today's date).
 
 This is useful when tracking specific flight instances, as flight numbers are typically reused daily.
 
@@ -78,3 +85,5 @@ list of flight numbers. The API will return a streaming response with flight inf
 - `/api/scrape/AA123?token=YOUR_TOKEN` - Get current flight AA123
 - `/api/scrape/AA123@2026-01-03?token=YOUR_TOKEN` - Get flight AA123 on January 3, 2026
 - `/api/scrape/AA123@2026-01-03T14:30,BA456@2026-01-04?token=YOUR_TOKEN` - Get multiple flights with specific dates
+
+**Note**: The API supports the @ symbol format. For natural date format (e.g., `BA698 03/01/26 14:50`), URL-encode the spaces or use the @ format instead.
