@@ -21,9 +21,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock* ./
 
 # 4. Install Python dependencies
-# --frozen: fails if the lockfile is out of sync (good for CI/Deployment)
 # --no-dev: prevents installing testing/dev dependencies in production
-RUN uv sync --frozen --no-dev --no-cache
+RUN uv sync --no-dev --no-cache
 
 # 5. Copy Node dependency files and install
 COPY package.json package-lock.json ./
