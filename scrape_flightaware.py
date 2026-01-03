@@ -1,5 +1,7 @@
 import logging
 from json import loads as json_loads
+from datetime import datetime
+from typing import Optional
 
 from bs4 import BeautifulSoup
 from requests import get
@@ -10,7 +12,14 @@ headers = {
 }
 
 
-def get_flight_ident(flight_number):
+def get_flight_ident(flight_number, date_time: Optional[datetime] = None):
+    """
+    Get the flight identifier from FlightAware.
+    
+    :param flight_number: The flight number to search for.
+    :param date_time: Optional datetime to search for a specific flight instance.
+    :return: The flight identifier, or None if not found.
+    """
     omnisearch_url = "https://www.flightaware.com/ajax/ignoreall/omnisearch/flight.rvt"
     omnisearch_params = {
         "v": "50",
@@ -30,8 +39,24 @@ def get_flight_ident(flight_number):
     return data["data"][0]["ident"]
 
 
-def get_flight_data(ident):
-    url = f"https://www.flightaware.com/live/flight/{ident}"
+def get_flight_data(ident, date_time: Optional[datetime] = None):
+    """
+    Get flight data from FlightAware.
+    
+    :param ident: The flight identifier.
+    :param date_time: Optional datetime to search for a specific flight instance.
+    :return: Dictionary containing flight data, or None if not found.
+    """
+    # If a specific date/time is provided, try to get historical/scheduled data
+    if date_time:
+        # Format: YYYYMMDD for the date portion
+        date_str = date_time.strftime("%Y%m%d")
+        # Try the history page first which contains flights for specific dates
+        url = f"https://www.flightaware.com/live/flight/{ident}/history/{date_str}"
+        logging.info(f"Fetching flight data for {ident} on {date_str} from {url}")
+    else:
+        url = f"https://www.flightaware.com/live/flight/{ident}"
+    
     flight_page = get(url, headers=headers)
     if flight_page.status_code == 200:
         soup = BeautifulSoup(flight_page.text, "html.parser")
@@ -39,10 +64,40 @@ def get_flight_data(ident):
         if script:
             script_content = script.string.replace("var trackpollBootstrap = ", "", 1)
             script_content = script_content[::-1].replace(";", "", 1).strip()[::-1]
-            flight_data = list(json_loads(script_content).get("flights", {}).values())[0]
-            if not flight_data:
-                logging.info(f"No flight data found for {flight_number}. Response: {data_response.text}")
+            flight_data_json = json_loads(script_content)
+            flights = flight_data_json.get("flights", {})
+            
+            if not flights:
+                logging.info(f"No flight data found for {ident}")
                 return None
+            
+            # Get the first flight (or the one matching the time if specified)
+            flight_data = None
+            if date_time and len(flights) > 1:
+                # Try to find the flight that best matches the requested time
+                target_timestamp = date_time.timestamp()
+                best_match = None
+                min_diff = float('inf')
+                
+                for fd in flights.values():
+                    dep_time = fd.get("takeoffTimes", {}).get("scheduled")
+                    if dep_time:
+                        diff = abs(dep_time - target_timestamp)
+                        if diff < min_diff:
+                            min_diff = diff
+                            best_match = fd
+                
+                if best_match:
+                    flight_data = best_match
+                else:
+                    flight_data = list(flights.values())[0]
+            else:
+                flight_data = list(flights.values())[0]
+            
+            if not flight_data:
+                logging.info(f"No flight data found for {ident}")
+                return None
+            
             return {
                 "airline": (flight_data.get("airline", {}) or {}).get("shortName", "Unknown Airline"),
                 "identifier": flight_data.get("codeShare", {}).get("ident", ident),
