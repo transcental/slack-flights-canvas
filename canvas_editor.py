@@ -12,7 +12,7 @@ from flight_number_extraction import extract_flight_numbers
 from info_message_format import FLIGHT_INFO_FORMAT_VERSION, FLIGHT_INFO_TITLE, format_flight_info_message, \
     combine_flight_info_messages
 from parse_canvas import CanvasLine, parse_canvas
-from scrape_flightaware import scrape_flightaware
+from scrape_flightaware import get_flight_ident, get_flight_data
 
 
 def clean_canvas(content: str) -> str:
@@ -418,7 +418,8 @@ class CanvasEditor:
                         replace_existing = True
             info_messages = {}  # Flight number: info message
             for flight in flight_numbers:
-                flight_info = scrape_flightaware(flight)
+                flight_ident = get_flight_ident(flight)
+                flight_info = get_flight_data(flight_ident)
                 if not flight_info:
                     logging.warning(
                         f"Failed to scrape flight info for {flight}")  # Not an error because flight numbers may be inaccurate
