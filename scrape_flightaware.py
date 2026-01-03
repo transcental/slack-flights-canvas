@@ -47,20 +47,20 @@ def get_flight_data(ident, date_time: Optional[datetime] = None):
     :param date_time: Optional datetime to search for a specific flight instance.
     :return: Dictionary containing flight data, or None if not found.
     """
-    # If a specific date/time is provided, try to get historical/scheduled data
+    # Always use the regular live flight page, which contains recent/scheduled flights
+    # We'll filter by date/time later if specified
+    url = f"https://www.flightaware.com/live/flight/{ident}"
     if date_time:
-        # Format: YYYYMMDD for the date portion
         date_str = date_time.strftime("%Y%m%d")
-        # Try the history page first which contains flights for specific dates
-        url = f"https://www.flightaware.com/live/flight/{ident}/history/{date_str}"
-        logging.info(f"Fetching flight data for {ident} on {date_str} from {url}")
-    else:
-        url = f"https://www.flightaware.com/live/flight/{ident}"
+        logging.info(f"Fetching flight data for {ident} (filtering for {date_str})")
     
     flight_page = get(url, headers=headers)
     if flight_page.status_code == 200:
         soup = BeautifulSoup(flight_page.text, "html.parser")
         script = soup.find("script", string=lambda text: text and "var trackpollBootstrap" in text)
+        if not script:
+            logging.info(f"No trackpollBootstrap script found for {ident} at {url}")
+            return None
         if script:
             script_content = script.string.replace("var trackpollBootstrap = ", "", 1)
             script_content = script_content[::-1].replace(";", "", 1).strip()[::-1]
